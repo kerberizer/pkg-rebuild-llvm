@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+# pkg-rebuild-llvm - llvm-svn repo rebuild script
+#
+# Written in 2015-2016 by Luchesar V. ILIEV <luchesar.iliev@gmail.com>
+#
+# To the extent possible under law, the author(s) have dedicated all
+# copyright and related and neighboring rights to this software to the
+# public domain worldwide. This software is distributed without any
+# warranty.
+#
+# You should have received a copy of the CC0 Public Domain Dedication
+# along with this software. If not, see
+# <http://creativecommons.org/publicdomain/zero/1.0/>.
+
+if [[ -r "${0}.config" ]]; then
+    source "${0}.config"
+else
+    echo "ERROR: ${0}.config doesn't exist or file not readable."
+    exit 1
+fi
+
+pkgdirs=(
+    "${pkgbase}/lib32-llvm-svn"
+    "${pkgbase}/llvm-svn"
+)
+
+rm -f "${localrepodir}"/{x86_64,i686}/*
+
+for arch in i686 x86_64 ; do
+    mkdir -p "${chrootr}/${arch}"
+done
+
+sudo /usr/bin/mkarchroot \
+	-C /usr/share/devtools/pacman-multilib.conf \
+	-M /usr/share/devtools/makepkg-x86_64.conf \
+	-c /var/cache/pacman/pkg \
+	"${chrootr}/x86_64/root" \
+	base-devel ccache
+
+sudo /usr/bin/arch-nspawn "${chrootr}/x86_64/root" /bin/bash -c "yes | pacman -Sy gcc-multilib"
+
+setarch "i686" sudo /usr/bin/mkarchroot \
+	-C /usr/share/devtools/pacman-extra.conf \
+	-M /usr/share/devtools/makepkg-i686.conf \
+	-c /var/cache/pacman/pkg \
+	"${chrootr}/i686/root" \
+	base-devel ccache
+
+for arch in i686 x86_64 ; do
+    sudo /usr/bin/arch-nspawn "${chrootr}/${arch}/root" /bin/bash -c \
+        "echo -e \"CCACHE_DIR='/.ccache'\nXZ_DEFAULTS='--threads=${numproc}'\" >>/etc/environment ; \
+         sed \
+            -e 's/^#MAKEFLAGS=.*$/MAKEFLAGS=\"-j${makethreads}\"/' \
+            -e '/^BUILDENV=/s/!ccache/ccache/' \
+            -e 's/^#PACKAGER=.*$/PACKAGER=\"${packager}\"/' \
+            -e 's/^#GPGKEY=.*$/GPGKEY=\"${pgpkey}\"/' \
+            -i /etc/makepkg.conf"
+done
+
+for arch in i686 x86_64 ; do
+    for pkgdir in ${pkgdirs[@]} ; do
+        [[ "${arch}" == "i686" ]] && echo "${pkgdir}" | fgrep -q "lib32-" && continue
+        cd "${pkgdir}" || exit 1
+        rm -f *.pkg.tar.xz{,.sig}
+        sudo /usr/bin/makechrootpkg -c -d ~/.ccache:/.ccache -r "${chrootr}/${arch}" || exit 1
+        for package in *.pkg.tar.xz ; do
+            gpg --detach-sign --default-key "${pgpkey}" "${package}" || exit 1
+        done
+        newpkgver=$(find . -name '*.pkg.tar.xz' -print -quit | \
+            sed -e 's/^.\+-svn-\(.\+\)-[[:digit:]]\+-\(x86_64\|i686\)\.pkg\.tar\.xz$/\1/')
+        sed -i "s/^pkgver=.*/pkgver=${newpkgver}/" PKGBUILD
+        mv *.pkg.tar.xz{,.sig} "${localrepodir}/${arch}/" || exit 1
+    done
+done
+
+for arch in i686 x86_64 ; do
+    repo-add --sign --key "${pgpkey}" \
+        "${localrepodir}/${arch}/${reponame}.db.tar.xz" "${localrepodir}/${arch}"/*.pkg.tar.xz
+    ln -sf "${reponame}.db.tar.xz" "${localrepodir}/${arch}/${reponame}.files"
+done
+
+[[ "$1" != "remote" ]] || \
+    rsync \
+        -rtlvH \
+        --rsh=ssh \
+        --safe-links \
+        --delete-after \
+        --delay-updates \
+        --remove-source-files \
+        "${localrepodir}/" \
+        "${remoterepohost}:${remoterepodir}/"
+
+# vim:set ts=4 sts=4 sw=4 et ft=sh:

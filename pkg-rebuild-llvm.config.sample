@@ -1,0 +1,14 @@
+# pkg-rebuild-llvm configuration file
+
+reponame='llvm-svn'
+localrepodir="${HOME}/dev/repos/${reponame}"
+remoterepohost='repos.example.net'
+remoterepodir="/srv/http/repos.example.net/archlinux/${reponame}"
+pkgbase="${HOME}/dev/llvm-svn"
+chrootr='/tmp/chroot-llvm'
+pgpkey='0x0000000000000000'
+packager='Somebody <somebody@example.com>'
+numproc='8'
+makethreads=$(( ${numproc} + 1 ))
+
+# vim:set ts=4 sts=4 sw=4 et ft=sh:

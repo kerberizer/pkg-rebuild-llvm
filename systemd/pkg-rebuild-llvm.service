@@ -1,0 +1,12 @@
+[Unit]
+Description=Rebuild the {lib32-,}llvm-svn packages
+
+[Service]
+User=myuser
+PermissionsStartOnly=true
+Nice=-10
+ExecStart=/home/myuser/bin/pkg-rebuild-llvm remote
+ExecStartPre=/usr/bin/rm -rf /tmp/chroot-llvm
+ExecStopPost=/usr/bin/rm -rf /tmp/chroot-llvm
+RuntimeMaxSec=18000
+TimeoutSec=600
