@@ -25,6 +25,8 @@ pkgdirs=(
     "${pkgbase}/llvm-svn"
 )
 
+rm -f "${localrepodir}"/{x86_64,i686}/*
+
 for arch in i686 x86_64 ; do
     mkdir -p "${chrootr}/${arch}"
 done
@@ -68,7 +70,6 @@ for arch in i686 x86_64 ; do
         newpkgver=$(find . -name '*.pkg.tar.xz' -print -quit | \
             sed -e 's/^.\+-svn-\(.\+\)-[[:digit:]]\+-\(x86_64\|i686\)\.pkg\.tar\.xz$/\1/')
         sed -i "s/^pkgver=.*/pkgver=${newpkgver}/" PKGBUILD
-        rm -f "${localrepodir}/${arch}"/*
         mv *.pkg.tar.xz{,.sig} "${localrepodir}/${arch}/" || exit 1
     done
 done
