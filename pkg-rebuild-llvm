@@ -13,13 +13,20 @@
 # along with this software. If not, see
 # <http://creativecommons.org/publicdomain/zero/1.0/>.
 
-if [[ -n "${1}" ]]; then
-    config_file="${1}"
-else
-    config_file="${0}.config"
-fi
+while [[ -n "${1}" ]]; do
+    case "${1}" in
+        remote)
+            update_remote='true'
+            shift
+            ;;
+        *)
+            config_file="${1}"
+            shift
+            ;;
+    esac
+done
 
-if [[ -r "${config_file}" ]]; then
+if [[ -r "${config_file:=${0}.config}" ]]; then
     source "${config_file}"
 else
     echo "ERROR: ${config_file} configuration file doesn't exist or is not readable."
@@ -86,7 +93,7 @@ for arch in i686 x86_64 ; do
     ln -sf "${reponame}.db.tar.xz" "${localrepodir}/${arch}/${reponame}.files"
 done
 
-[[ "$1" != "remote" ]] || \
+[[ "${update_remote}" == 'true' ]] && \
     rsync \
         -rtlvH \
         --rsh=ssh \
