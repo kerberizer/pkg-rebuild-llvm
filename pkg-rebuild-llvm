@@ -13,10 +13,16 @@
 # along with this software. If not, see
 # <http://creativecommons.org/publicdomain/zero/1.0/>.
 
-if [[ -r "${0}.config" ]]; then
-    source "${0}.config"
+if [[ -n "${1}" ]]; then
+    config_file="${1}"
 else
-    echo "ERROR: ${0}.config doesn't exist or file not readable."
+    config_file="${0}.config"
+fi
+
+if [[ -r "${config_file}" ]]; then
+    source "${config_file}"
+else
+    echo "ERROR: ${config_file} configuration file doesn't exist or is not readable."
     exit 1
 fi
 
